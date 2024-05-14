@@ -52,3 +52,5 @@ wandb/
 .env
 data/
 models/
+
+.vscode/

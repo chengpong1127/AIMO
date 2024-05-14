@@ -8,31 +8,38 @@ from peft import LoraConfig
 from transformers import AutoTokenizer, load_tool, BitsAndBytesConfig
 from tqdm.auto import tqdm
 
-from trl import AutoModelForCausalLMWithValueHead, PPOConfig, PPOTrainer, TextEnvironment
+from trl import AutoModelForCausalLMWithValueHead, PPOConfig, PPOTrainer, TextEnvironment, RewardTrainer
 from dataclasses import dataclass
 from typing import Optional
 from dotenv import load_dotenv
 import bitsandbytes as bnb
+from accelerate import find_executable_batch_size, notebook_launcher
 
 load_dotenv()
 
 @dataclass
 class TrainerConfig:
     model_name: str
-    epochs: int
-    train_batch_size: int
-    train_mini_batch_size: int
-    test_batch_size: int
-    gradient_accumulation_steps: int
-    
+    prompt_path: str
     save_dir: str
+    wandb_project_name: str
+    
+    # Text Environment
+    text_env_tools: Optional[list[str]] = None
+    text_env_max_turns: int = 1
+    
+    # Training
+    epochs: int = 4
+    train_batch_size: int = 4
+    train_mini_batch_size: int = 1
+    val_batch_size: int = 4
+    gradient_accumulation_steps: int = 4
+    generation_max_new_tokens: int = 512
+    
     
 
 class AIMOPPOTrainer:
-    
-    
-    
-    def __init__(self, config: TrainerConfig, train_dataset: Dataset, test_dataset: Optional[Dataset] = None):
+    def __init__(self, config: TrainerConfig, train_dataset: Dataset, val_dataset: Dataset):
         # read config file
         self.config = config
         
@@ -43,8 +50,8 @@ class AIMOPPOTrainer:
             bnb_4bit_compute_dtype=torch.bfloat16,
         )
         lora_config = LoraConfig(
-            r=16,
-            lora_alpha=32,
+            r=4,
+            lora_alpha=8,
             lora_dropout=0.05,
             bias="none",
             task_type="CAUSAL_LM",
@@ -58,12 +65,12 @@ class AIMOPPOTrainer:
         
         self.tokenizer = AutoTokenizer.from_pretrained(self.config.model_name)
         self.tokenizer.pad_token = self.tokenizer.eos_token
-        prompt = """
-Let's think step by step to ensure the answer is correct. Submit your answer like "Result = 8 <submit>".
-Problem:"""
+        
+        with open(self.config.prompt_path, "r") as f:
+            prompt = f.read()
         
         generation_kwargs = {
-            "max_new_tokens": 512,
+            "max_new_tokens": self.config.generation_max_new_tokens,
             "min_length": -1,
             "top_k": 0.0,
             "top_p": 1.0,
@@ -74,10 +81,10 @@ Problem:"""
         self.text_env = TextEnvironment(
             self.model,
             self.tokenizer,
-            [load_tool("lvwerra/python-interpreter")],
+            [load_tool(tool) for tool in self.config.text_env_tools],
             self._exact_match_reward,
             prompt,
-            max_turns=1,
+            max_turns=self.config.text_env_max_turns,
             generation_kwargs=generation_kwargs,
         )
         ppo_config = PPOConfig(
@@ -88,24 +95,23 @@ Problem:"""
             remove_unused_columns=False,
             optimize_cuda_cache=True,
             log_with="wandb",
-            tracker_project_name="AIMO",
+            tracker_project_name=self.config.wandb_project_name,
             project_kwargs = {
                 "project_dir": self.config.save_dir,
                 "automatic_checkpoint_naming": True,
                 "total_limit": 5,
+            },
+            accelerator_kwargs = {
+                "mixed_precision": "bf16"
             }
         )
         adam = bnb.optim.Adam8bit(self.model.parameters())
-        split = train_dataset.train_test_split(test_size=0.1)
-        _train_dataset, _val_dataset = split["train"], split["test"]
-        self.ppo_trainer: PPOTrainer = PPOTrainer(config=ppo_config, model=self.model, tokenizer=self.tokenizer, dataset=_train_dataset, optimizer=adam)
+        self.ppo_trainer: PPOTrainer = PPOTrainer(config=ppo_config, model=self.model, tokenizer=self.tokenizer, dataset=train_dataset, optimizer=adam)
         self.model = self.ppo_trainer.model
         self.train_dataloader = self.ppo_trainer.dataloader
-        self.val_dataloader = self.ppo_trainer.prepare_dataloader(_val_dataset)
+        self.val_dataloader = self.ppo_trainer.prepare_dataloader(val_dataset)
         
         self.accelerator = self.ppo_trainer.accelerator
-        
-        
         
     def _train_step(self, batch, text_env: TextEnvironment, ppo_trainer: PPOTrainer):
         queries, responses, masks, rewards, _ = text_env.run(batch["query"], answers=batch["answer"])
@@ -150,6 +156,7 @@ Problem:"""
         self._train_inner_loop(self.ppo_trainer, self.text_env, self.tokenizer, self.config.epochs, self.train_dataloader, self.val_dataloader)
         reward_mean_test = self._evaluate(self.val_dataloader, self.text_env, self.ppo_trainer)
         self._log({"val_reward_mean": reward_mean_test})
+        self._save_checkpoint()
                 
     def _train_inner_loop(self, ppo_trainer: PPOTrainer, text_env: TextEnvironment, tokenizer, epochs, train_dataloader, val_dataloader):
         
