@@ -10,7 +10,7 @@ from tqdm.auto import tqdm
 
 from trl import AutoModelForCausalLMWithValueHead, PPOConfig, PPOTrainer, TextEnvironment
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Union
 from dotenv import load_dotenv
 import bitsandbytes as bnb
 
@@ -38,9 +38,18 @@ class TrainerConfig:
     
 
 class AIMOPPOTrainer:
-    def __init__(self, config: TrainerConfig, train_dataset: Dataset, val_dataset: Dataset):
-        self.config = config
-        
+    def __init__(self, config: Union[TrainerConfig, str, dict], train_dataset: Dataset, val_dataset: Dataset):
+        if isinstance(config, str):
+            with open(config, "r") as f:
+                config = yaml.safe_load(f)
+            self.config = TrainerConfig(**config)
+        elif isinstance(config, dict):
+            self.config = TrainerConfig(**config)
+        elif isinstance(config, TrainerConfig):
+            self.config = config
+        else:
+            raise ValueError("config must be a TrainerConfig, str for config path or dict")
+            
         bnb_config = BitsAndBytesConfig(
             load_in_4bit=True,
             bnb_4bit_quant_type="nf4",

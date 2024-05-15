@@ -1,0 +1,16 @@
+model_name: meta-llama/Meta-Llama-3-8B-Instruct
+prompt_path: /home/wrt/chengpong/AIMO/prompts/simpleCOT.txt
+save_dir: /home/wrt/chengpong/AIMO/models
+wandb_project_name: AIMO
+
+# Text Environment
+text_env_tools: []
+text_env_max_turns: 1
+
+# Training
+epochs: 4
+train_batch_size: 4
+train_mini_batch_size: 1
+val_batch_size: 4
+gradient_accumulation_steps: 4
+generation_max_new_tokens: 256
