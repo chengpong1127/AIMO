@@ -1,9 +1,7 @@
-
+from aimoppo import AIMOPPOTrainer, TrainerConfig
+from datasets import load_dataset
 
 def training_func():
-    from aimoppo import AIMOPPOTrainer, TrainerConfig
-    
-    from datasets import load_dataset
     dataset = load_dataset("gsm8k", "main")
     dataset = dataset.rename_columns({"question": "query"})
     dataset = dataset.map(lambda x: {"answer": x["answer"].split("#### ")[1]})
