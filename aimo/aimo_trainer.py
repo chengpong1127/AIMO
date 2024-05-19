@@ -10,7 +10,7 @@ from tqdm.auto import tqdm
 from trl import AutoModelForCausalLMWithValueHead, PPOConfig, PPOTrainer, TextEnvironment
 from typing import Optional, Union
 import bitsandbytes as bnb
-from aimo.aimo_config import TrainerConfig
+from .aimo_config import TrainerConfig
 
 from dotenv import load_dotenv
 load_dotenv()
