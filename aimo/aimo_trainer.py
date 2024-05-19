@@ -29,13 +29,22 @@ class AIMOPPOTrainer:
             self.config = config
         else:
             raise ValueError("config must be a TrainerConfig, str for config path or dict")
+        
+        if self.config.precision == "bf16":
+            self.precision = torch.bfloat16
+        elif self.config.precision == "fp16":
+            self.precision = torch.float16
+        elif self.config.precision == "fp32":
+            self.precision = torch.float32
+        else:
+            raise ValueError("precision must be one of bf16, fp16, fp32")
             
         bnb_config = BitsAndBytesConfig(
             load_in_4bit=True,
             bnb_4bit_quant_type="nf4",
             bnb_4bit_use_double_quant=True,
-            bnb_4bit_compute_dtype=torch.bfloat16,
-            bnb_4bit_quant_storage=torch.bfloat16,
+            bnb_4bit_compute_dtype=self.precision,
+            bnb_4bit_quant_storage=self.precision,
         )
         lora_config = LoraConfig(
             r=4,
@@ -50,17 +59,8 @@ class AIMOPPOTrainer:
             peft_config=lora_config,
             quantization_config=bnb_config,
             low_cpu_mem_usage=True,
-            torch_dtype=torch.bfloat16,
+            torch_dtype=self.precision,
         )
-        
-        if self.config.precision == "bf16":
-            self.precision = torch.bfloat16
-        elif self.config.precision == "fp16":
-            self.precision = torch.float16
-        elif self.config.precision == "fp32":
-            self.precision = torch.float32
-        else:
-            raise ValueError("precision must be one of bf16, fp16, fp32")
         
         
         self.tokenizer = AutoTokenizer.from_pretrained(self.config.model_name)
@@ -104,7 +104,7 @@ class AIMOPPOTrainer:
                 "total_limit": 5,
             },
             accelerator_kwargs = {
-                "mixed_precision": "bf16"
+                "mixed_precision": self.precision
             }
         )
         adam = bnb.optim.Adam8bit(self.model.parameters())
