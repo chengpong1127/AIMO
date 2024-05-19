@@ -53,6 +53,15 @@ class AIMOPPOTrainer:
             torch_dtype=torch.bfloat16,
         )
         
+        if self.config.precision == "bf16":
+            self.precision = torch.bfloat16
+        elif self.config.precision == "fp16":
+            self.precision = torch.float16
+        elif self.config.precision == "fp32":
+            self.precision = torch.float32
+        else:
+            raise ValueError("precision must be one of bf16, fp16, fp32")
+        
         
         self.tokenizer = AutoTokenizer.from_pretrained(self.config.model_name)
         self.tokenizer.pad_token = self.tokenizer.eos_token

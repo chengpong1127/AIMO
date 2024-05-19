@@ -19,3 +19,5 @@ class TrainerConfig:
     val_batch_size: int = 4
     gradient_accumulation_steps: int = 4
     generation_max_new_tokens: int = 512
+    
+    precision: str = "bf16"
