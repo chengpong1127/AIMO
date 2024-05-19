@@ -1,48 +1,28 @@
-
 import yaml
 import re
 import numpy as np
 import torch
 from datasets import Dataset
 from peft import LoraConfig
-from transformers import AutoTokenizer, load_tool, BitsAndBytesConfig, Trainer
+from transformers import AutoTokenizer, load_tool, BitsAndBytesConfig
 from tqdm.auto import tqdm
 
 from trl import AutoModelForCausalLMWithValueHead, PPOConfig, PPOTrainer, TextEnvironment
-from dataclasses import dataclass
 from typing import Optional, Union
-from dotenv import load_dotenv
 import bitsandbytes as bnb
+from aimo.aimo_config import TrainerConfig
 
+from dotenv import load_dotenv
 load_dotenv()
 
-@dataclass
-class TrainerConfig:
-    model_name: str
-    prompt_path: str
-    save_dir: str
-    wandb_project_name: str
-    
-    # Text Environment
-    text_env_tools: Optional[list[str]] = None
-    text_env_max_turns: int = 1
-    
-    # Training
-    epochs: int = 4
-    train_batch_size: int = 4
-    train_mini_batch_size: int = 1
-    val_batch_size: int = 4
-    gradient_accumulation_steps: int = 4
-    generation_max_new_tokens: int = 512
-    
-    
+
 
 class AIMOPPOTrainer:
-    def __init__(self, config: Union[TrainerConfig, str, dict], train_dataset: Dataset, val_dataset: Dataset):
+    def __init__(self, config: Union[TrainerConfig, str, dict], train_dataset: Optional[Dataset] = None, val_dataset: Optional[Dataset] = None, load_checkpoint: Optional[str] = None, inference: bool = False):
         if isinstance(config, str):
             with open(config, "r") as f:
-                config = yaml.safe_load(f)
-            self.config = TrainerConfig(**config)
+                _config = yaml.safe_load(f)
+            self.config = TrainerConfig(**_config)
         elif isinstance(config, dict):
             self.config = TrainerConfig(**config)
         elif isinstance(config, TrainerConfig):
@@ -74,18 +54,12 @@ class AIMOPPOTrainer:
         self.tokenizer = AutoTokenizer.from_pretrained(self.config.model_name)
         self.tokenizer.pad_token = self.tokenizer.eos_token
         
-        with open(self.config.prompt_path, "r") as f:
-            prompt = f.read()
+        if self.config.prompt:
+            prompt = self.config.prompt
+        else:
+            with open(self.config.prompt_path, "r") as f:
+                prompt = f.read()
         
-        generation_kwargs = {
-            "max_new_tokens": self.config.generation_max_new_tokens,
-            "min_length": -1,
-            "top_k": 0.0,
-            "top_p": 1.0,
-            "do_sample": True,
-            "pad_token_id": self.tokenizer.eos_token_id,
-            "eos_token_id": -1,
-        }
         self.text_env = TextEnvironment(
             self.model,
             self.tokenizer,
@@ -93,7 +67,15 @@ class AIMOPPOTrainer:
             self._exact_match_reward,
             prompt,
             max_turns=self.config.text_env_max_turns,
-            generation_kwargs=generation_kwargs,
+            generation_kwargs={
+                "max_new_tokens": self.config.generation_max_new_tokens,
+                "min_length": -1,
+                "top_k": 0.0,
+                "top_p": 1.0,
+                "do_sample": True,
+                "pad_token_id": self.tokenizer.eos_token_id,
+                "eos_token_id": -1,
+            },
         )
         ppo_config = PPOConfig(
             batch_size=self.config.train_batch_size,
@@ -102,7 +84,7 @@ class AIMOPPOTrainer:
             gradient_accumulation_steps = self.config.gradient_accumulation_steps,
             remove_unused_columns=False,
             optimize_cuda_cache=True,
-            log_with="wandb",
+            log_with="wandb" if not inference else None,
             tracker_project_name=self.config.wandb_project_name,
             project_kwargs = {
                 "project_dir": self.config.save_dir,
@@ -116,10 +98,15 @@ class AIMOPPOTrainer:
         adam = bnb.optim.Adam8bit(self.model.parameters())
         self.ppo_trainer: PPOTrainer = PPOTrainer(config=ppo_config, model=self.model, tokenizer=self.tokenizer, dataset=train_dataset, optimizer=adam)
         self.model = self.ppo_trainer.model
-        self.train_dataloader = self.ppo_trainer.dataloader
-        self.val_dataloader = self.ppo_trainer.prepare_dataloader(val_dataset)
+        if train_dataset is not None:
+            self.train_dataloader = self.ppo_trainer.dataloader
+        if val_dataset is not None:
+            self.val_dataloader = self.ppo_trainer.prepare_dataloader(val_dataset)
         
         self.accelerator = self.ppo_trainer.accelerator
+        
+        if load_checkpoint:
+            self.load_checkpoint(load_checkpoint)
         
     def _train_step(self, batch, text_env: TextEnvironment, ppo_trainer: PPOTrainer):
         queries, responses, masks, rewards, _ = text_env.run(batch["query"], answers=batch["answer"])
@@ -161,6 +148,8 @@ class AIMOPPOTrainer:
     
     
     def train(self):
+        if self.train_dataloader is None or self.val_dataloader is None:
+            raise ValueError("train_dataset and val_dataset must be provided to train")
         self._train_inner_loop(self.ppo_trainer, self.text_env, self.tokenizer, self.config.epochs, self.train_dataloader, self.val_dataloader)
         reward_mean_test = self._evaluate(self.val_dataloader, self.text_env, self.ppo_trainer)
         self._log({"val_reward_mean": reward_mean_test})
@@ -204,23 +193,12 @@ class AIMOPPOTrainer:
     def load_checkpoint(self, checkpoint_dir: str):
         self.accelerator.load_state(checkpoint_dir)
         
-    def save_model(self, output_dir: str):
-        self.model.save_pretrained(output_dir)
+    def infer_answer(self, math_problem: str):
+        _, responses, _, _, _ = self.text_env.run([math_problem], answers=[0])
+        response = self.tokenizer.decode(responses[0])
+        return self._get_answer(response)
         
+    
     def infer(self, math_problem: str):
-        return self._get_answer(self.infer_text(math_problem))
-    
-    def infer_text(self, math_problem: str):
         _, _, _, _, histories = self.text_env.run([math_problem], answers=[0])
-        return histories[0].text
-    
-    def generate_aimo_submission(self):
-        import aimo
-        env = aimo.make_env()
-        iter_test = env.iter_test()
-        for test, sample_submission in iter_test:
-            sample_submission['answer'] = self.infer(test['problem'])
-            env.predict(sample_submission)
-            print(test)
-            print(sample_submission, '\n')
-        
+        return histories[0]

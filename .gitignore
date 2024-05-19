@@ -51,6 +51,6 @@ l10n/
 wandb/
 .env
 data/
-models/
+models*/
 
 .vscode/

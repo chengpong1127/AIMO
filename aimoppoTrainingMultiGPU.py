@@ -1,4 +1,4 @@
-from aimoppo import AIMOPPOTrainer
+from aimo import AIMOPPOTrainer
 from datasets import load_dataset
 
 def main():

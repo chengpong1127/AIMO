@@ -1,0 +1,9 @@
+datasets
+numpy==1.22.4
+peft
+transformers
+tqdm
+trl
+python-dotenv
+deepspeed
+wandb
