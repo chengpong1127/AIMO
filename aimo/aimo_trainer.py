@@ -35,6 +35,7 @@ class AIMOPPOTrainer:
             bnb_4bit_quant_type="nf4",
             bnb_4bit_use_double_quant=True,
             bnb_4bit_compute_dtype=torch.bfloat16,
+            bnb_4bit_quant_storage=torch.bfloat16,
         )
         lora_config = LoraConfig(
             r=4,
@@ -42,12 +43,14 @@ class AIMOPPOTrainer:
             lora_dropout=0.05,
             bias="none",
             task_type="CAUSAL_LM",
+            target_modules="all-linear",
         )
         self.model = AutoModelForCausalLMWithValueHead.from_pretrained(
             self.config.model_name,
             peft_config=lora_config,
             quantization_config=bnb_config,
-            low_cpu_mem_usage=True
+            low_cpu_mem_usage=True,
+            torch_dtype=torch.bfloat16,
         )
         
         
@@ -115,9 +118,10 @@ class AIMOPPOTrainer:
     
     def _evaluate(self, test_dataloader, text_env: TextEnvironment, ppo_trainer: PPOTrainer):
         test_rewards = []
-        for test_batch in test_dataloader:
-            _, _, _, rewards, histories = text_env.run(test_batch["query"], answers=test_batch["answer"])
-            test_rewards.extend(rewards)
+        with torch.no_grad():
+            for test_batch in test_dataloader:
+                _, _, _, rewards, histories = text_env.run(test_batch["query"], answers=test_batch["answer"])
+                test_rewards.extend(rewards)
         test_rewards = ppo_trainer.accelerator.gather_for_metrics(
             torch.stack(test_rewards).to(ppo_trainer.accelerator.device)
         )
