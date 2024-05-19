@@ -104,7 +104,7 @@ class AIMOPPOTrainer:
                 "total_limit": 5,
             },
             accelerator_kwargs = {
-                "mixed_precision": self.precision
+                "mixed_precision": self.config.precision
             }
         )
         adam = bnb.optim.Adam8bit(self.model.parameters())
