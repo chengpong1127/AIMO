@@ -98,7 +98,7 @@ class AIMOPPOTrainer:
             optimize_cuda_cache=True,
             log_with="wandb" if not inference else None,
             tracker_project_name=self.config.wandb_project_name,
-            learning_rate=0.0001,
+            learning_rate=self.config.learning_rate,
             project_kwargs = {
                 "project_dir": self.config.save_dir,
                 "automatic_checkpoint_naming": True,

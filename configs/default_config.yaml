@@ -15,3 +15,5 @@ val_batch_size: 8
 gradient_accumulation_steps: 2
 generation_max_new_tokens: 500
 precision: bf16
+
+learning_rate: 1e-5
