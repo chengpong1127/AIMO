@@ -7,12 +7,18 @@ def main():
     dataset = dataset.map(lambda x: {"answer": x["answer"].split("#### ")[1]})
     train_dataset = dataset["train"]
     test_dataset = dataset["test"]
+    
+    train_dataset = train_dataset.map(lambda x: {"answer": x["answer"].replace(",", "")})
+    test_dataset = test_dataset.map(lambda x: {"answer": x["answer"].replace(",", "")})
 
-    train_dataset = train_dataset.select(range(200))
-    test_dataset = test_dataset.select(range(20))
+    train_dataset = train_dataset.shuffle()
+    test_dataset = test_dataset.shuffle()
+
+    train_dataset = train_dataset.select(range(2000))
+    test_dataset = test_dataset.select(range(16))
 
     trainer = AIMOPPOTrainer(
-        "/home/wrt/chengpong/AIMO/configs/default_config.yaml",
+        "configs/python_tool_config.yaml",
         train_dataset,
         test_dataset
     )

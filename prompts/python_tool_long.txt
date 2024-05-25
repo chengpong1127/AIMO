@@ -30,6 +30,6 @@ print(solution())
 
 Result = 8 <submit>
 
-Now, let's think step by step to ensure every detail is correct.
+Now, it's your turn to solve the problem!
 
 Problem:

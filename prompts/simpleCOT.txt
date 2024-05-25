@@ -23,34 +23,23 @@ There exists a unique increasing geometric sequence of five 2-digit positive int
 
 **Step-by-Step Solution:**
 
-1. **Define the sequence:** 
-   Let the five terms be \( a, ar, ar^2, ar^3, ar^4 \), where \( a \) is the first term and \( r \) is the common ratio ( \( r > 1 \) ).
+1. **Define the sequence:**
+   \( a, ar, ar^2, ar^3, ar^4 \) where \( a \) is the first term and \( r \) is the common ratio ( \( r > 1 \) ).
 
-2. **Identify the range:**
-   Since all terms must be 2-digit integers, \( 10 \leq a \leq 99 \). Additionally, \( ar, ar^2, ar^3, ar^4 \) must also lie between 10 and 99.
+2. **Range constraints:**
+   \( 10 \leq a, ar, ar^2, ar^3, ar^4 \leq 99 \).
 
-3. **Determine constraints:**
-   For \( ar \) to be a 2-digit integer, \( 10 \leq ar \leq 99 \). Similarly, \( 10 \leq ar^2 \leq 99 \). Continue this process up to \( ar^4 \).
+3. **Determine \( a \) and \( r \):**
+   \( r \) must be rational and all terms must be integers.
 
-4. **Find possible values of \( a \) and \( r \):**
-   Since the sequence is geometric and all terms must be integers, \( r \) must be a rational number that maintains integer values throughout the sequence.
+4. **Check possible values:**
+   - Test feasible \( r \) values.
+   - \( r = 3/2 \), \( a = 16 \) yields \( 16, 24, 36, 54, 81 \).
 
-5. **Check for possible values manually:**
-   Let's test common ratios and find a sequence that fits:
-   - If \( r = 2 \): Sequence: \( 10, 20, 40, 80, 160 \) (not all terms are 2-digit).
-   - Continue testing higher \( a \) and feasible \( r \) values until a valid sequence is found.
+5. **Calculate the sum:**
+   Sum = 16 + 24 + 36 + 54 + 81 = 211
 
-6. **Identify the unique sequence:**
-   Through this process, we find \( a = 16 \) and \( r = 3/2 \):
-   Sequence: \( 16, 24, 36, 54, 81 \) fits all constraints.
-
-7. **Calculate the sum:**
-   Sum = 16 + 24 + 36 + 54 + 81
-
-8. **Final calculation:**
-   Sum = 211
-
-9. **Submit the answer:**
+6. **Submit the answer:**
    Result = 211 <submit>
 
 Now, let's think the problem in a step by step way to be sure we have the right answer.

@@ -1,0 +1,19 @@
+Example of using a Python API to solve math questions.
+
+Q: Olivia has $23. She bought five bagels for $3 each. How much money does she have left?
+
+<request><PythonInterpreter>
+def solution():
+    money_initial = 23
+    bagels = 5
+    bagel_cost = 3
+    money_spent = bagels * bagel_cost
+    money_left = money_initial - money_spent
+    result = money_left
+    return result
+print(solution())
+<call>72<response>
+
+Result = 72 <submit>
+
+Q: 
