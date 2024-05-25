@@ -47,12 +47,12 @@ class AIMOPPOTrainer:
             bnb_4bit_quant_storage=self.precision,
         )
         lora_config = LoraConfig(
-            r=4,
-            lora_alpha=8,
+            r=16,
+            lora_alpha=32,
             lora_dropout=0.05,
             bias="none",
             task_type="CAUSAL_LM",
-            target_modules="all-linear",
+            #target_modules="all-linear",
         )
         self.model = AutoModelForCausalLMWithValueHead.from_pretrained(
             self.config.model_name,
@@ -98,6 +98,7 @@ class AIMOPPOTrainer:
             optimize_cuda_cache=True,
             log_with="wandb" if not inference else None,
             tracker_project_name=self.config.wandb_project_name,
+            learning_rate=0.0001,
             project_kwargs = {
                 "project_dir": self.config.save_dir,
                 "automatic_checkpoint_naming": True,
@@ -113,7 +114,12 @@ class AIMOPPOTrainer:
         if train_dataset is not None:
             self.train_dataloader = self.ppo_trainer.dataloader
         if val_dataset is not None:
-            self.val_dataloader = self.ppo_trainer.prepare_dataloader(val_dataset)
+            self.val_dataloader = torch.utils.data.DataLoader(
+                val_dataset,
+                batch_size=self.config.val_batch_size,
+                shuffle=True,
+                drop_last=True,
+            )
         
         self.accelerator = self.ppo_trainer.accelerator
         
@@ -127,10 +133,9 @@ class AIMOPPOTrainer:
     
     def _evaluate(self, test_dataloader, text_env: TextEnvironment, ppo_trainer: PPOTrainer):
         test_rewards = []
-        with torch.no_grad():
-            for test_batch in test_dataloader:
-                _, _, _, rewards, histories = text_env.run(test_batch["query"], answers=test_batch["answer"])
-                test_rewards.extend(rewards)
+        for test_batch in test_dataloader:
+            _, _, _, rewards, _ = text_env.run(test_batch["query"], answers=test_batch["answer"])
+            test_rewards.extend(rewards)
         test_rewards = ppo_trainer.accelerator.gather_for_metrics(
             torch.stack(test_rewards).to(ppo_trainer.accelerator.device)
         )
@@ -164,9 +169,6 @@ class AIMOPPOTrainer:
         if self.train_dataloader is None or self.val_dataloader is None:
             raise ValueError("train_dataset and val_dataset must be provided to train")
         self._train_inner_loop(self.ppo_trainer, self.text_env, self.tokenizer, self.config.epochs, self.train_dataloader, self.val_dataloader)
-        reward_mean_test = self._evaluate(self.val_dataloader, self.text_env, self.ppo_trainer)
-        self._log({"val_reward_mean": reward_mean_test})
-        self.save_checkpoint()
                 
     def _train_inner_loop(self, ppo_trainer: PPOTrainer, text_env: TextEnvironment, tokenizer, epochs, train_dataloader, val_dataloader):
         
@@ -185,6 +187,10 @@ class AIMOPPOTrainer:
                 self._log_stats(ppo_trainer, batch["query"], responses, batch["answer"], rewards, train_stats)
                 self.current_step += 1
                 progress_bar.update(1)
+                
+        reward_mean_test = self._evaluate(self.val_dataloader, self.text_env, self.ppo_trainer)
+        self._log({"val_reward_mean": reward_mean_test})
+        self.save_checkpoint()
                 
                 
                 
