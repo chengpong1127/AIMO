@@ -1,4 +1,4 @@
-model_name: meta-llama/Meta-Llama-3-8B
+model_name: meta-llama/Meta-Llama-3-8B-Instruct
 prompt_path: prompts/python_tool.txt
 save_dir: models
 wandb_project_name: AIMO

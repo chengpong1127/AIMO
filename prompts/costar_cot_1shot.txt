@@ -18,6 +18,8 @@ Provide your answer as: "Result = [Your Answer] <submit>"
 
 ### DEMO ###
 
+let's think the problem in a step by step way to be sure we have the right answer.
+
 **Math Problem:**
 There exists a unique increasing geometric sequence of five 2-digit positive integers. What is their sum?
 
@@ -42,6 +44,6 @@ There exists a unique increasing geometric sequence of five 2-digit positive int
 6. **Submit the answer:**
    Result = 211 <submit>
 
-Now, let's think the problem in a step by step way to be sure we have the right answer.
+let's think the problem in a step by step way to be sure we have the right answer.
 
 **Math Problem:**

@@ -1,0 +1,19 @@
+model_name: meta-llama/Meta-Llama-3-8B-Instruct
+prompt_path: prompts/costar_cot_1shot.txt
+save_dir: models
+wandb_project_name: AIMO
+
+# Text Environment
+text_env_tools: []
+text_env_max_turns: 1
+
+# Training
+epochs: 1
+train_batch_size: 8
+train_mini_batch_size: 1
+val_batch_size: 8
+gradient_accumulation_steps: 4
+generation_max_new_tokens: 500
+precision: fp16
+
+learning_rate: 1e-5

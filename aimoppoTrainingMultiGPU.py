@@ -1,7 +1,9 @@
 from aimo import AIMOPPOTrainer
 from datasets import load_dataset
+import os
 
 def main():
+    os.system("rm -rf models/checkpoints/*")
     dataset = load_dataset("gsm8k", "main")
     dataset = dataset.rename_columns({"question": "query"})
     dataset = dataset.map(lambda x: {"answer": x["answer"].split("#### ")[1]})
@@ -14,11 +16,11 @@ def main():
     train_dataset = train_dataset.shuffle()
     test_dataset = test_dataset.shuffle()
 
-    train_dataset = train_dataset.select(range(2000))
+    train_dataset = train_dataset.select(range(200))
     test_dataset = test_dataset.select(range(16))
 
     trainer = AIMOPPOTrainer(
-        "configs/python_tool_config.yaml",
+        "configs/costar_cot_1shot.yaml",
         train_dataset,
         test_dataset
     )
