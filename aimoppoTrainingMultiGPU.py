@@ -1,4 +1,4 @@
-from aimo import AIMOPPOTrainer
+from aimoppo import AIMOPPOTrainer
 from datasets import load_dataset
 import os
 
