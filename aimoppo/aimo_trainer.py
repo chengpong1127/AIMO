@@ -212,10 +212,14 @@ class AIMOPPOTrainer:
     def load_checkpoint(self, checkpoint_dir: str):
         self.accelerator.load_state(checkpoint_dir)
         
-    def infer_answer(self, math_problem: str):
-        _, responses, _, _, _ = self.text_env.run([math_problem], answers=[0])
-        response = self.tokenizer.decode(responses[0])
-        return self._get_answer(response)
+    def infer_answer(self, math_problem: str, self_consistency_num: int = 1):
+        answers = []
+        for _ in range(self_consistency_num):
+            _, responses, _, _, _ = self.text_env.run([math_problem], answers=[0])
+            response = self.tokenizer.decode(responses[0])
+            answers.append(self._get_answer(response))
+        final_answer = max(set(answers), key=answers.count)
+        return final_answer
         
     
     def infer(self, math_problem: str):
