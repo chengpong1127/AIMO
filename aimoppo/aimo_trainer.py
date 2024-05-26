@@ -4,7 +4,7 @@ import numpy as np
 import torch
 from datasets import Dataset
 from peft import LoraConfig
-from transformers import AutoTokenizer, load_tool, BitsAndBytesConfig
+from transformers import AutoTokenizer, load_tool, BitsAndBytesConfig, AdamW, get_constant_schedule_with_warmup
 from tqdm.auto import tqdm
 
 from trl import AutoModelForCausalLMWithValueHead, PPOConfig, PPOTrainer, TextEnvironment
@@ -108,8 +108,11 @@ class AIMOPPOTrainer:
                 "mixed_precision": self.config.precision
             }
         )
-        adam = bnb.optim.Adam8bit(self.model.parameters())
-        self.ppo_trainer: PPOTrainer = PPOTrainer(config=ppo_config, model=self.model, tokenizer=self.tokenizer, dataset=train_dataset, optimizer=adam)
+        #adam = bnb.optim.Adam8bit(self.model.parameters(), lr=self.config.learning_rate)
+        adam = AdamW(self.model.parameters(), lr=self.config.learning_rate)
+        lr_scheduler = get_constant_schedule_with_warmup(adam, num_warmup_steps=self.config.warnup_steps)
+        
+        self.ppo_trainer: PPOTrainer = PPOTrainer(config=ppo_config, model=self.model, tokenizer=self.tokenizer, dataset=train_dataset, optimizer=adam, lr_scheduler=lr_scheduler)
         self.model = self.ppo_trainer.model
         if train_dataset is not None:
             self.train_dataloader = self.ppo_trainer.dataloader

@@ -9,12 +9,13 @@ text_env_tools:
 text_env_max_turns: 2
 
 # Training
-epochs: 8
-train_batch_size: 32
+epochs: 10
+train_batch_size: 64
 train_mini_batch_size: 1
-val_batch_size: 16
+val_batch_size: 10
 gradient_accumulation_steps: 32
-generation_max_new_tokens: 400
+generation_max_new_tokens: 500
 precision: bf16
 
-learning_rate: 1e-6
+learning_rate: 0.00001
+warnup_steps: 100
