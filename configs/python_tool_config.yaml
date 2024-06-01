@@ -9,11 +9,11 @@ text_env_tools:
 text_env_max_turns: 2
 
 # Training
-epochs: 10
-train_batch_size: 64
+epochs: 4
+train_batch_size: 32
 train_mini_batch_size: 1
 val_batch_size: 10
-gradient_accumulation_steps: 32
+gradient_accumulation_steps: 16
 generation_max_new_tokens: 500
 precision: bf16
 

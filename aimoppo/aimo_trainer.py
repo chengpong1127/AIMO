@@ -4,7 +4,7 @@ import numpy as np
 import torch
 from datasets import Dataset
 from peft import LoraConfig
-from transformers import AutoTokenizer, load_tool, BitsAndBytesConfig, AdamW, get_constant_schedule_with_warmup
+from transformers import AutoTokenizer, load_tool, BitsAndBytesConfig, get_constant_schedule_with_warmup, get_linear_schedule_with_warmup, get_cosine_schedule_with_warmup, Trainer
 from tqdm.auto import tqdm
 
 from trl import AutoModelForCausalLMWithValueHead, PPOConfig, PPOTrainer, TextEnvironment
@@ -18,7 +18,7 @@ load_dotenv()
 
 
 class AIMOPPOTrainer:
-    def __init__(self, config: Union[TrainerConfig, str, dict], train_dataset: Optional[Dataset] = None, val_dataset: Optional[Dataset] = None, load_checkpoint: Optional[str] = None, inference: bool = False):
+    def __init__(self, config: Union[TrainerConfig, str, dict], train_dataset: Optional[Dataset] = None, val_dataset: Optional[Dataset] = None, test_dataset: Optional[Dataset] = None, load_checkpoint: Optional[str] = None, inference: bool = False):
         if isinstance(config, str):
             with open(config, "r") as f:
                 _config = yaml.safe_load(f)
@@ -108,11 +108,20 @@ class AIMOPPOTrainer:
                 "mixed_precision": self.config.precision
             }
         )
-        #adam = bnb.optim.Adam8bit(self.model.parameters(), lr=self.config.learning_rate)
-        adam = AdamW(self.model.parameters(), lr=self.config.learning_rate)
-        lr_scheduler = get_constant_schedule_with_warmup(adam, num_warmup_steps=self.config.warnup_steps)
+        optimizer = None
+        if self.config.optimizer == "adam8b":
+            optimizer = bnb.optim.Adam8bit(self.model.parameters(), lr=self.config.learning_rate)
+        elif self.config.optimizer == "adamw8b":
+            optimizer = bnb.optim.AdamW8bit(self.model.parameters(), lr=self.config.learning_rate)
+            
+        if self.config.lr_scheduler == "constant":
+            lr_scheduler = get_constant_schedule_with_warmup(optimizer, num_warmup_steps=self.config.warnup_steps)
+        elif self.config.lr_scheduler == "linear":
+            lr_scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=self.config.warnup_steps, num_training_steps=464)
+        elif self.config.lr_scheduler == "cosine":
+            lr_scheduler = get_cosine_schedule_with_warmup(optimizer, num_warmup_steps=self.config.warnup_steps, num_training_steps=464)
         
-        self.ppo_trainer: PPOTrainer = PPOTrainer(config=ppo_config, model=self.model, tokenizer=self.tokenizer, dataset=train_dataset, optimizer=adam, lr_scheduler=lr_scheduler)
+        self.ppo_trainer: PPOTrainer = PPOTrainer(config=ppo_config, model=self.model, tokenizer=self.tokenizer, dataset=train_dataset, optimizer=optimizer, lr_scheduler=lr_scheduler)
         self.model = self.ppo_trainer.model
         if train_dataset is not None:
             self.train_dataloader = self.ppo_trainer.dataloader
@@ -120,6 +129,13 @@ class AIMOPPOTrainer:
             self.val_dataloader = torch.utils.data.DataLoader(
                 val_dataset,
                 batch_size=self.config.val_batch_size,
+                shuffle=True,
+                drop_last=True,
+            )
+        if test_dataset is not None:
+            self.test_dataloader = torch.utils.data.DataLoader(
+                test_dataset,
+                batch_size=self.config.test_batch_size,
                 shuffle=True,
                 drop_last=True,
             )
@@ -171,18 +187,24 @@ class AIMOPPOTrainer:
     def train(self):
         if self.train_dataloader is None or self.val_dataloader is None:
             raise ValueError("train_dataset and val_dataset must be provided to train")
-        self._train_inner_loop(self.ppo_trainer, self.text_env, self.tokenizer, self.config.epochs, self.train_dataloader, self.val_dataloader)
+        self._train_inner_loop(self.ppo_trainer, self.text_env, self.tokenizer, self.config.epochs, self.train_dataloader, self.val_dataloader, self.test_dataloader)
                 
-    def _train_inner_loop(self, ppo_trainer: PPOTrainer, text_env: TextEnvironment, tokenizer, epochs, train_dataloader, val_dataloader):
+    def _train_inner_loop(self, ppo_trainer: PPOTrainer, text_env: TextEnvironment, tokenizer, epochs, train_dataloader, val_dataloader, test_dataloader):
         
         progress_bar = tqdm(range(epochs * len(train_dataloader)))
         self.current_step = 0
+        best_reward_mean = float('-inf')
         for _ in range(epochs):
-            for step, batch in enumerate(train_dataloader):
-                if step == 0:
-                    reward_mean_test = self._evaluate(val_dataloader, text_env, ppo_trainer)
-                    self._log({"val_reward_mean": reward_mean_test})
-                    self.save_checkpoint()
+            for _, batch in enumerate(train_dataloader):
+                if self.current_step % self.config.save_steps == 0:
+                    val_reward_mean = self._evaluate(val_dataloader, text_env, ppo_trainer)
+                    test_reward_mean = self._evaluate(test_dataloader, text_env, ppo_trainer)
+                    
+                    self._log({"val_reward_mean": val_reward_mean})
+                    self._log({"test_reward_mean": test_reward_mean})
+                    if val_reward_mean > best_reward_mean:
+                        best_reward_mean = val_reward_mean
+                        self.save_checkpoint()
 
                 train_stats, _, responses, rewards = self._train_step(batch, text_env, ppo_trainer)
                 responses = [tokenizer.decode(response) for response in responses]
@@ -191,9 +213,13 @@ class AIMOPPOTrainer:
                 self.current_step += 1
                 progress_bar.update(1)
                 
-        reward_mean_test = self._evaluate(self.val_dataloader, self.text_env, self.ppo_trainer)
-        self._log({"val_reward_mean": reward_mean_test})
-        self.save_checkpoint()
+        val_reward_mean = self._evaluate(self.val_dataloader, self.text_env, self.ppo_trainer)
+        test_reward_mean = self._evaluate(self.test_dataloader, self.text_env, self.ppo_trainer)
+        self._log({"val_reward_mean": val_reward_mean})
+        self._log({"test_reward_mean": test_reward_mean})
+        if val_reward_mean > best_reward_mean:
+            best_reward_mean = val_reward_mean
+            self.save_checkpoint()
                 
                 
                 
