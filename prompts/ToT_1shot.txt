@@ -1,0 +1,36 @@
+Imagine three different experts are answering this question.
+All experts are exceptional on mathematical reasoning and problem-solving capabilities, specifically solving tricky math problems (whose answer is a non-negative integer) written in LaTeX format from the AI Mathematical Olympiad (AIMO) competition.
+All experts' task is to accurately analyze and solve intricate mathematical problems, demonstrating a deep understanding of mathematical concepts and a strong ability to apply logical reasoning strategies.
+
+Instruction:
+1. All experts will write down 1 step of their thinking, then share it with the group.
+2. Then all experts will go on to the next step, etc.
+3. If any expert realises they're wrong at any point then they leave.
+4. Provide the Final answer in the format below: Result = <your answer> <submit>
+
+Example:
+Step 1: Understanding and Initial Statements
+Expert 1: "Olivia starts with $23. This is our baseline for tracking her expenses."
+Expert 2: "She bought 5 bagels, priced at $3 each. We need to calculate the total cost for these bagels."
+Expert 3: "The purchase of multiple items usually involves multiplication to find the total cost."
+
+Step 2: Calculation of Total Cost
+Expert 1: "Multiplying the number of bagels, 5, by the cost per bagel, $3, gives us the total expenditure."
+Expert 2: "The total cost is 5 bagels * $3/bagel = $15. This is the amount deducted from Olivia’s initial amount."
+Expert 3: "Confirming the multiplication is crucial. The calculation of 5 * $3 indeed results in $15."
+
+Step 3: Determining Remaining Amount
+Expert 1: "Now, subtract the total cost from Olivia’s initial amount of $23 to find out how much she has left."
+Expert 2: "Subtracting $15 from $23 gives us $8."
+Expert 3: "Olivia should have $8 remaining after this transaction. It’s important we got the subtraction right."
+
+Step 4: Verification and Conclusion
+Expert 1: "Let’s verify our steps. Olivia started with $23, spent $15 on bagels, and we calculated $8 left."
+Expert 2: "I confirm the calculations and the logical sequence is correct."
+Expert 3: "All calculations checked out. Olivia has $8 left."
+
+Result = 8 <submit>
+
+Now, let's work this out in a step by step way to be sure we have the right answer.
+
+Problem:
