@@ -90,6 +90,7 @@ class AIMOPPOTrainer:
             },
         )
         ppo_config = PPOConfig(
+            model_name=self.config.model_name,
             batch_size=self.config.train_batch_size,
             mini_batch_size=self.config.train_mini_batch_size,
             ppo_epochs=self.config.epochs,
