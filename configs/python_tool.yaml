@@ -1,19 +1,19 @@
 model_name: meta-llama/Meta-Llama-3-8B-Instruct
-prompt_path: prompts/python_tool.txt
+prompt_path: prompts/python_cot.txt
 save_dir: models
 wandb_project_name: AIMO
 
 # Text Environment
 text_env_tools: 
   - lvwerra/python-interpreter
-text_env_max_turns: 2
+text_env_max_turns: 5
 
 # Training
 epochs: 10
-train_batch_size: 8
+train_batch_size: 4
 train_mini_batch_size: 1
-val_batch_size: 2
-test_batch_size: 2
+val_batch_size: 4
+test_batch_size: 4
 gradient_accumulation_steps: 4
 generation_max_new_tokens: 300
 precision: bf16

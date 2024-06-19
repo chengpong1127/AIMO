@@ -197,7 +197,14 @@ class AIMOPPOTrainer:
         best_reward_mean = float('-inf')
         for _ in range(epochs):
             for _, batch in enumerate(train_dataloader):
-                if self.current_step % self.config.save_steps == 0:
+                train_stats, _, responses, rewards = self._train_step(batch, text_env, ppo_trainer)
+                responses = [tokenizer.decode(response) for response in responses]
+                
+                self._log_stats(ppo_trainer, batch["query"], responses, batch["answer"], rewards, train_stats)
+                self.current_step += 1
+                progress_bar.update(1)
+                
+                if self.current_step % self.config.save_steps == 0 and self.current_step > 0:
                     val_reward_mean = self._evaluate(val_dataloader, text_env, ppo_trainer)
                     test_reward_mean = self._evaluate(test_dataloader, text_env, ppo_trainer)
                     
@@ -206,21 +213,6 @@ class AIMOPPOTrainer:
                     if val_reward_mean > best_reward_mean:
                         best_reward_mean = val_reward_mean
                         self.save_checkpoint()
-
-                train_stats, _, responses, rewards = self._train_step(batch, text_env, ppo_trainer)
-                responses = [tokenizer.decode(response) for response in responses]
-                
-                self._log_stats(ppo_trainer, batch["query"], responses, batch["answer"], rewards, train_stats)
-                self.current_step += 1
-                progress_bar.update(1)
-                
-        val_reward_mean = self._evaluate(self.val_dataloader, self.text_env, self.ppo_trainer)
-        test_reward_mean = self._evaluate(self.test_dataloader, self.text_env, self.ppo_trainer)
-        self._log({"val_reward_mean": val_reward_mean})
-        self._log({"test_reward_mean": test_reward_mean})
-        if val_reward_mean > best_reward_mean:
-            best_reward_mean = val_reward_mean
-            self.save_checkpoint()
                 
                 
                 
