@@ -11,3 +11,4 @@ wandb
 bitsandbytes
 tqdm
 accelerate
+evaluate
