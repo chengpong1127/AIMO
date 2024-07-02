@@ -58,8 +58,8 @@ def generate_copy_dataset(dataset: Dataset, copy_prompt: str, pipe: Pipeline, co
     result_incorrect_solutions = []
     
     for batch in tqdm(dataset.iter(1), total=len(dataset)):
-        result_problems.append(batch["prompt"][0])
-        result_correct_solutions.append(batch["correction_prompt"][0])
+        result_problems.append(batch["problem"][0])
+        result_correct_solutions.append(batch["correct_completion"][0])
         result_incorrect_solutions.append(batch["incorrect_completion"][0])
         
         prompt = copy_prompt.format(problem=batch["problem"][0], correct_solution=batch["correct_completion"][0], incorrect_solution=batch["incorrect_completion"][0])
