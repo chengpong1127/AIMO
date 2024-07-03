@@ -9,3 +9,6 @@ python-dotenv
 deepspeed
 wandb
 bitsandbytes
+tqdm
+accelerate
+evaluate
