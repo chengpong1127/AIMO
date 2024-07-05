@@ -115,9 +115,8 @@ def generate_copy_dataset(
         )
         completions = generate_completions(pipe, prompt, copy_count, generate_kwargs)
         extract_result = [
-            extract_problem_correct_incorrect(completion)
-            for completion in completions
-            if extract_problem_correct_incorrect(completion) is not None
+            result for completion in completions
+            if (result := extract_problem_correct_incorrect(completion)) is not None
         ]
         problems, correct_solutions, incorrect_solutions = zip(*extract_result)
         result_problems += problems
