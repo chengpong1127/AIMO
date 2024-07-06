@@ -1,9 +1,11 @@
-from datasets import Dataset
+from datasets import Dataset, DatasetInfo, disable_progress_bar
 from transformers import Pipeline
 from tqdm.auto import tqdm
 from .utils import generate_completions
 import logging
+import yaml
 
+disable_progress_bar()
 
 def generate_corrective_dataset(
     incorrect_solution_dataset: Dataset,
@@ -14,17 +16,31 @@ def generate_corrective_dataset(
     correction_attempts=5,
     generate_kwargs={},
     return_completion_history=False,
+    checkpoint_path: str = None,
 ) -> Dataset:
     result_original_prompts = []
     result_incorrect_solutions = []
     result_correction_prompts = []
     result_corrective_completions = []
-
-    failed_count = 0
+    start_index = 0
     if return_completion_history:
         completion_history = []
-    for row in tqdm(
-        incorrect_solution_dataset.iter(1), total=len(incorrect_solution_dataset)
+    if checkpoint_path is not None:
+        try:
+            checkpoint_dataset = Dataset.load_from_disk(checkpoint_path)
+            result_original_prompts = checkpoint_dataset["original_prompt"]
+            result_incorrect_solutions = checkpoint_dataset["incorrect_completion"]
+            result_correction_prompts = checkpoint_dataset["correction_prompt"]
+            result_corrective_completions = checkpoint_dataset["correct_completion"]
+            start_index = int(checkpoint_dataset.info.description) + 1
+            if return_completion_history:
+                with open(f"{checkpoint_path}/history.yaml", "r") as f:
+                    completion_history = yaml.load(f, Loader=yaml.FullLoader)
+            logging.info(f"Resuming from index {start_index}")
+        except FileNotFoundError:
+            logging.info("Checkpoint file not found. Starting from scratch.")
+    for i, row in tqdm(
+        enumerate(incorrect_solution_dataset.iter(1), start=start_index), total=len(incorrect_solution_dataset)
     ):
         prompt_with_problem = corrective_prompt.format(
             problem=row["problem"][0],
@@ -42,32 +58,39 @@ def generate_corrective_dataset(
             completions = generate_completions(
                 supervisor_pipe,
                 prompt_with_problem,
-                corrective_solution_count_per_incorrect_solution * 2,
+                corrective_solution_count_per_incorrect_solution,
                 generate_kwargs,
             )
             correct_completion += [
                 completion
                 for completion in completions
-                if extract_answer_function(completion) == row["correct_answer"][0]
+                if extract_answer_function(completion) == float(row["correct_answer"][0])
             ]
             attempt += 1
             if return_completion_history:
                 completion_history += completions
 
-        if len(correct_completion) == 0:
-            failed_count += 1
-            logging.debug(
-                f"Failed to generate corrective completion for problem: {row['problem'][0]}"
-            )
         new_data_count = len(correct_completion)
         result_original_prompts += [row["prompt"][0]] * new_data_count
         result_incorrect_solutions += [row["completion"][0]] * new_data_count
         result_correction_prompts += [prompt_with_problem] * new_data_count
         result_corrective_completions += correct_completion[:new_data_count]
+        
+        if checkpoint_path is not None:
+            checkpoint_dataset = Dataset.from_dict(
+                {
+                    "original_prompt": result_original_prompts,
+                    "incorrect_completion": result_incorrect_solutions,
+                    "correction_prompt": result_correction_prompts,
+                    "correct_completion": result_corrective_completions,
+                },
+                info=DatasetInfo(str(i))
+            )
+            checkpoint_dataset.save_to_disk(checkpoint_path)
+            if return_completion_history:
+                with open(f"{checkpoint_path}/history.yaml", "w") as f:
+                    yaml.dump(completion_history, f)
 
-    logging.info(
-        f"Failed to generate corrective completion for {failed_count} problems"
-    )
     if return_completion_history:
         return (
             Dataset.from_dict(
@@ -76,7 +99,8 @@ def generate_corrective_dataset(
                     "incorrect_completion": result_incorrect_solutions,
                     "correction_prompt": result_correction_prompts,
                     "correct_completion": result_corrective_completions,
-                }
+                },
+                info=DatasetInfo(f"Corrective Dataset\nCorrective Prompt: {corrective_prompt}\nSupervisor Model Path: {supervisor_pipe.model.name_or_path}\nCorrection Attempts: {correction_attempts}\nCorrective Solution Count Per Incorrect Solution: {corrective_solution_count_per_incorrect_solution}\nGenerate kwargs: {generate_kwargs}"),
             ),
             completion_history,
         )
@@ -87,7 +111,8 @@ def generate_corrective_dataset(
                 "incorrect_completion": result_incorrect_solutions,
                 "correction_prompt": result_correction_prompts,
                 "correct_completion": result_corrective_completions,
-            }
+            },
+            info=DatasetInfo(f"Corrective Dataset\nCorrective Prompt: {corrective_prompt}\nSupervisor Model Path: {supervisor_pipe.model.name_or_path}\nCorrection Attempts: {correction_attempts}\nCorrective Solution Count Per Incorrect Solution: {corrective_solution_count_per_incorrect_solution}\nGenerate kwargs: {generate_kwargs}"),
         )
 
 
@@ -98,37 +123,63 @@ def generate_copy_dataset(
     copy_count: int,
     extract_problem_correct_incorrect: callable,
     generate_kwargs={},
+    checkpoint_path: str = None,
 ) -> Dataset:
     result_problems = []
     result_correct_solutions = []
     result_incorrect_solutions = []
+    start_index = 0
+    if checkpoint_path is not None:
+        try:
+            checkpoint_dataset = Dataset.load_from_disk(checkpoint_path)
+            result_problems = checkpoint_dataset["prompt"]
+            result_correct_solutions = checkpoint_dataset["correct_completion"]
+            result_incorrect_solutions = checkpoint_dataset["incorrect_completion"]
+            start_index = int(checkpoint_dataset.info.description) + 1
+            logging.info(f"Resuming from index {start_index}")
+        except FileNotFoundError:
+            logging.info("Checkpoint file not found. Starting from scratch.")
 
-    for batch in tqdm(dataset.iter(1), total=len(dataset)):
-        result_problems.append(batch["problem"][0])
-        result_correct_solutions.append(batch["correct_completion"][0])
-        result_incorrect_solutions.append(batch["incorrect_completion"][0])
+    for i, row in tqdm(enumerate(dataset.iter(1), start=start_index), total=len(dataset)):
+        result_problems.append(row["original_prompt"][0])
+        result_correct_solutions.append(row["correct_completion"][0])
+        result_incorrect_solutions.append(row["incorrect_completion"][0])
 
         prompt = copy_prompt.format(
-            problem=batch["problem"][0],
-            correct_solution=batch["correct_completion"][0],
-            incorrect_solution=batch["incorrect_completion"][0],
+            problem=row["original_prompt"][0],
+            correct_solution=row["correct_completion"][0],
+            incorrect_solution=row["incorrect_completion"][0],
         )
         completions = generate_completions(pipe, prompt, copy_count, generate_kwargs)
         extract_result = [
             result for completion in completions
-            if (result := extract_problem_correct_incorrect(completion)) is not None
+            if (result := extract_problem_correct_incorrect(completion)) is not None and len(result[0]) > 10 and len(result[1]) > 10 and len(result[2]) > 10
         ]
+        if not extract_result:
+            continue
         problems, correct_solutions, incorrect_solutions = zip(*extract_result)
         result_problems += problems
         result_correct_solutions += correct_solutions
         result_incorrect_solutions += incorrect_solutions
+        
+        if checkpoint_path is not None:
+            checkpoint_dataset = Dataset.from_dict(
+                {
+                    "prompt": result_problems,
+                    "correct_completion": result_correct_solutions,
+                    "incorrect_completion": result_incorrect_solutions,
+                },
+                info=DatasetInfo(str(i))
+            )
+            checkpoint_dataset.save_to_disk(checkpoint_path)
 
     return Dataset.from_dict(
         {
             "prompt": result_problems,
             "correct_completion": result_correct_solutions,
             "incorrect_completion": result_incorrect_solutions,
-        }
+        },
+        info=DatasetInfo(f"Copy Dataset\nCopy Prompt: {copy_prompt}\nSupervisor Model Path: {pipe.model.name_or_path}\nGenerate kwargs: {generate_kwargs}\nCopy Count: {copy_count}"),
     )
 
 
