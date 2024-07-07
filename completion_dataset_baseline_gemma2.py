@@ -11,7 +11,7 @@ def get_pipe(model_path: str):
         bnb_4bit_compute_dtype="bfloat16",
     )
     model = AutoModelForCausalLM.from_pretrained(
-        model_path, quantization_config=quantization_config, trust_remote_code=True
+        model_path, quantization_config=quantization_config
     )
     tokenizer = AutoTokenizer.from_pretrained(model_path)
     tokenizer.pad_token_id = tokenizer.eos_token_id
