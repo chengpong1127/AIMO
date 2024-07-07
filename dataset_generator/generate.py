@@ -1,11 +1,93 @@
-from datasets import Dataset, DatasetInfo, disable_progress_bar
+from datasets import Dataset, DatasetInfo, disable_progress_bar, enable_progress_bar, load_from_disk
 from transformers import Pipeline
 from tqdm.auto import tqdm
-from .utils import generate_completions
+from .utils import generate_completions, is_number
 import logging
 import yaml
 
-disable_progress_bar()
+def generate_completion_dataset(
+    pipe: Pipeline,
+    dataset: Dataset,
+    prompt: str,
+    extract_answer_function: callable,
+    generate_count_per_problem: int = 1,
+    generate_kwargs: dict = {},
+    checkpoint_path: str = None,
+) -> Dataset:  
+    disable_progress_bar()
+    result_prompts = []
+    result_completions = []
+    result_labels = []
+    result_problem = []
+    result_correct_answers = []
+    result_generated_answers = []
+    start_index = 0
+    if checkpoint_path is not None:
+        try:
+            checkpoint_dataset = load_from_disk(checkpoint_path)
+            result_prompts = checkpoint_dataset["prompt"]
+            result_completions = checkpoint_dataset["completion"]
+            result_labels = checkpoint_dataset["label"]
+            result_problem = checkpoint_dataset["problem"]
+            result_correct_answers = checkpoint_dataset["correct_answer"]
+            result_generated_answers = checkpoint_dataset["generated_answer"]
+            start_index = int(checkpoint_dataset.info.description) + 1
+            print(f"Resuming from index {start_index}")
+        except FileNotFoundError:
+            print("Checkpoint file not found. Starting from scratch.")
+
+    for i in tqdm(range(start_index, len(dataset)), desc="Generating completions"):
+        row = dataset[i]
+        prompt_with_problem = prompt.format(problem=row["problem"])
+        generated_text = generate_completions(
+            pipe, prompt_with_problem, generate_count_per_problem, generate_kwargs
+        )
+        generated_answers = [
+            extract_answer_function(completion) for completion in generated_text
+        ]
+
+        result_prompts += [prompt_with_problem] * generate_count_per_problem
+        result_completions += generated_text
+        result_labels += [
+            (
+                float(generated_answer) == float(row["answer"])
+                if is_number(generated_answer)
+                else False
+            )
+            for generated_answer in generated_answers
+        ]
+        result_problem += [row["problem"]] * generate_count_per_problem
+        result_correct_answers += [row["answer"]] * generate_count_per_problem
+        result_generated_answers += generated_answers
+        
+        if checkpoint_path is not None:
+            checkpoint_dataset = Dataset.from_dict(
+            {
+                "prompt": result_prompts,
+                "completion": result_completions,
+                "label": result_labels,
+                "problem": result_problem,
+                "correct_answer": result_correct_answers,
+                "generated_answer": result_generated_answers,
+            },
+            info=DatasetInfo(str(i))
+            )
+            checkpoint_dataset.save_to_disk(checkpoint_path)
+    enable_progress_bar()
+    return Dataset.from_dict(
+        {
+            "prompt": result_prompts,
+            "completion": result_completions,
+            "label": result_labels,
+            "problem": result_problem,
+            "correct_answer": result_correct_answers,
+            "generated_answer": result_generated_answers,
+        },
+        info=DatasetInfo(
+            description=f"Completion generation dataset.\nPrompt:{prompt}\nmodel_path:{pipe.model.name_or_path}\ngenerate_count_per_problem:{generate_count_per_problem}\ngenerate_kwargs:{str(generate_kwargs)}"
+        )
+    )
+
 
 def generate_corrective_dataset(
     incorrect_solution_dataset: Dataset,
@@ -18,6 +100,7 @@ def generate_corrective_dataset(
     return_completion_history=False,
     checkpoint_path: str = None,
 ) -> Dataset:
+    disable_progress_bar()
     result_original_prompts = []
     result_incorrect_solutions = []
     result_correction_prompts = []
@@ -89,6 +172,7 @@ def generate_corrective_dataset(
             if return_completion_history:
                 with open(f"{checkpoint_path}/history.yaml", "w") as f:
                     yaml.dump(completion_history, f)
+    enable_progress_bar()
 
     if return_completion_history:
         return (
@@ -124,6 +208,7 @@ def generate_copy_dataset(
     generate_kwargs={},
     checkpoint_path: str = None,
 ) -> Dataset:
+    disable_progress_bar()
     result_problems = []
     result_correct_solutions = []
     result_incorrect_solutions = []
@@ -172,6 +257,7 @@ def generate_copy_dataset(
                 info=DatasetInfo(str(i))
             )
             checkpoint_dataset.save_to_disk(checkpoint_path)
+    enable_progress_bar()
 
     return Dataset.from_dict(
         {
@@ -180,27 +266,4 @@ def generate_copy_dataset(
             "incorrect_completion": result_incorrect_solutions,
         },
         info=DatasetInfo(f"Copy Dataset\nCopy Prompt: {copy_prompt}\nSupervisor Model Path: {pipe.model.name_or_path}\nGenerate kwargs: {generate_kwargs}\nCopy Count: {copy_count}"),
-    )
-
-
-def generate_kto_dataset(correction_dataset: Dataset) -> Dataset:
-    result_prompts = []
-    result_completions = []
-    result_labels = []
-
-    for row in tqdm(correction_dataset.iter(1), total=len(correction_dataset)):
-        result_prompts.append(row["original_prompt"][0])
-        result_completions.append(row["incorrect_completion"][0])
-        result_labels.append(False)
-
-        result_prompts.append(row["original_prompt"][0])
-        result_completions.append(row["correct_completion"][0])
-        result_labels.append(True)
-
-    return Dataset.from_dict(
-        {
-            "prompt": result_prompts,
-            "completion": result_completions,
-            "label": result_labels,
-        }
     )
