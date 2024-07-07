@@ -56,4 +56,5 @@ models*/
 .vscode/
 output/
 kto_output/
-dataset/
+dataset/*
+!dataset/__init__.py
