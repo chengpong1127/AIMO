@@ -25,7 +25,7 @@ import re
 
 model_path = "google/gemma-2-9b-it"
 completion_prompt = "{problem} \nPlease reason step by step, and put your final answer within \\boxed{{}}.\nApproach: "
-dataset_save_path = "dataset/completion_dataset_MATH_LLAMA3_8b_ZeroShot_COT"
+dataset_save_path = "dataset/completion_dataset_MATH_Gemma2_9b_ZeroShot_COT"
 
 dataset = get_MATH_dataset("test")
 pipe = get_pipe(model_path)
