@@ -39,14 +39,13 @@ def generate_corrective_dataset(
             logging.info(f"Resuming from index {start_index}")
         except FileNotFoundError:
             logging.info("Checkpoint file not found. Starting from scratch.")
-    for i, row in tqdm(
-        enumerate(incorrect_solution_dataset.iter(1), start=start_index), total=len(incorrect_solution_dataset)
-    ):
+    for i in tqdm(range(start_index, len(incorrect_solution_dataset)), desc="Generating corrective completions"):
+        row = incorrect_solution_dataset[i]
         prompt_with_problem = corrective_prompt.format(
-            problem=row["problem"][0],
-            incorrect_solution=row["completion"][0],
-            correct_answer=row["correct_answer"][0],
-            incorrect_answer=row["generated_answer"][0],
+            problem=row["problem"],
+            incorrect_solution=row["completion"],
+            correct_answer=row["correct_answer"],
+            incorrect_answer=row["generated_answer"],
         )
 
         correct_completion = []
@@ -64,15 +63,15 @@ def generate_corrective_dataset(
             correct_completion += [
                 completion
                 for completion in completions
-                if extract_answer_function(completion) == float(row["correct_answer"][0])
+                if extract_answer_function(completion) == float(row["correct_answer"])
             ]
             attempt += 1
             if return_completion_history:
                 completion_history += completions
 
         new_data_count = len(correct_completion)
-        result_original_prompts += [row["prompt"][0]] * new_data_count
-        result_incorrect_solutions += [row["completion"][0]] * new_data_count
+        result_original_prompts += [row["prompt"]] * new_data_count
+        result_incorrect_solutions += [row["completion"]] * new_data_count
         result_correction_prompts += [prompt_with_problem] * new_data_count
         result_corrective_completions += correct_completion[:new_data_count]
         
