@@ -23,7 +23,7 @@ from dataset_generator import generate_completion_dataset
 from dataset import get_MATH_dataset
 import re
 
-model_path = "google/gemma-2-9b-it"
+model_path = "microsoft/Phi-3-medium-128k-instruct"
 completion_prompt = "{problem} \nPlease reason step by step, and put your final answer within \\boxed{{}}.\nApproach: "
 dataset_save_path = "dataset/completion_dataset_MATH_LLAMA3_8b_ZeroShot_COT"
 
