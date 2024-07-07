@@ -139,15 +139,16 @@ def generate_copy_dataset(
         except FileNotFoundError:
             logging.info("Checkpoint file not found. Starting from scratch.")
 
-    for i, row in tqdm(enumerate(dataset.iter(1), start=start_index), total=len(dataset)):
-        result_problems.append(row["original_prompt"][0])
-        result_correct_solutions.append(row["correct_completion"][0])
-        result_incorrect_solutions.append(row["incorrect_completion"][0])
+    for i in tqdm(range(start_index, len(dataset)), desc="Generating copy completions"):
+        row = dataset[i]
+        result_problems.append(row["original_prompt"])
+        result_correct_solutions.append(row["correct_completion"])
+        result_incorrect_solutions.append(row["incorrect_completion"])
 
         prompt = copy_prompt.format(
-            problem=row["original_prompt"][0],
-            correct_solution=row["correct_completion"][0],
-            incorrect_solution=row["incorrect_completion"][0],
+            problem=row["original_prompt"],
+            correct_solution=row["correct_completion"],
+            incorrect_solution=row["incorrect_completion"],
         )
         completions = generate_completions(pipe, prompt, copy_count, generate_kwargs)
         extract_result = [
