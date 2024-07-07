@@ -11,7 +11,7 @@ def get_pipe(model_path: str):
         bnb_4bit_compute_dtype="bfloat16",
     )
     model = AutoModelForCausalLM.from_pretrained(
-        model_path, quantization_config=quantization_config
+        model_path, quantization_config=quantization_config, trust_remote_code=True
     )
     tokenizer = AutoTokenizer.from_pretrained(model_path)
     tokenizer.pad_token_id = tokenizer.eos_token_id
@@ -23,7 +23,7 @@ from dataset_generator import generate_completion_dataset
 from dataset import get_MATH_dataset
 import re
 
-model_path = "google/gemma-2-9b-it"
+model_path = "microsoft/Phi-3-medium-128k-instruct"
 completion_prompt = "{problem} \nPlease reason step by step, and put your final answer within \\boxed{{}}.\nApproach: "
 dataset_save_path = "dataset/completion_dataset_MATH_LLAMA3_8b_ZeroShot_COT"
 
