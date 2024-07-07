@@ -2,7 +2,7 @@ torch
 datasets
 numpy
 peft
-transformers==4.39.3
+transformers
 tqdm
 trl
 python-dotenv
