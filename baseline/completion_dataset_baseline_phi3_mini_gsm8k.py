@@ -11,7 +11,7 @@ def get_pipe(model_path: str):
         bnb_4bit_compute_dtype="bfloat16",
     )
     model = AutoModelForCausalLM.from_pretrained(
-        model_path, quantization_config=quantization_config
+        model_path, quantization_config=quantization_config, trust_remote_code=True
     )
     tokenizer = AutoTokenizer.from_pretrained(model_path)
     tokenizer.pad_token_id = tokenizer.eos_token_id
@@ -20,14 +20,19 @@ def get_pipe(model_path: str):
 
 # %%
 from dataset_generator import generate_completion_dataset
-from dataset import get_MATH_dataset
+from dataset import get_MATH_dataset, get_GSM8k_dataset
 import re
 
-model_path = "meta-llama/Meta-Llama-3-8B-Instruct"
+dataset_option = "GSM8k"
+model_path = "microsoft/Phi-3-medium-128k-instruct"
 completion_prompt = "{problem} \nPlease reason step by step, and put your final answer within \\boxed{{}}.\nApproach: "
-dataset_save_path = "dataset/completion_dataset_MATH_LLAMA3_8b_ZeroShot_COT"
+dataset_save_path = "dataset/completion_dataset_GSM8k_Phi-3-medium-128k-instruct_ZeroShot_COT"
 
-dataset = get_MATH_dataset("test")
+if dataset_option == "GSM8k":
+    dataset = get_GSM8k_dataset("test")
+else:
+    dataset = get_MATH_dataset("test")
+
 pipe = get_pipe(model_path)
 class StoppingCriteriaSub(StoppingCriteria):
     def __call__(self, input_ids, scores):
@@ -36,7 +41,7 @@ class StoppingCriteriaSub(StoppingCriteria):
 generate_kargs = {
     "max_new_tokens": 2048,
     "do_sample": True, 
-    "batch_size": 4,
+    "batch_size": 16,
     "top_k": 0.0,
     "top_p": 1.0,
     "temperature": 0.5,
