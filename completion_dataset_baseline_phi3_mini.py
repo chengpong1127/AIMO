@@ -20,12 +20,12 @@ def get_pipe(model_path: str):
 
 # %%
 from dataset_generator import generate_completion_dataset
-from dataset import get_MATH_dataset, get_GSM8k_dataset
+from dataset import get_MATH_dataset
 import re
 
 model_path = "microsoft/Phi-3-mini-128k-instruct"
 completion_prompt = "{problem} \nPlease reason step by step, and put your final answer within \\boxed{{}}.\nApproach: "
-dataset_save_path = "dataset/completion_dataset_MATH_phi3_mini_128k_instruct_ZeroShot_COT"
+dataset_save_path = "dataset/completion_dataset_MATH_phi3_mini_ZeroShot_COT"
 
 dataset = get_MATH_dataset("test")
 pipe = get_pipe(model_path)

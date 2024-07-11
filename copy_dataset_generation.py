@@ -4,9 +4,9 @@ from dataset_generator import generate_copy_dataset
 from datasets import load_from_disk
 from utils import get_pipe
 
-corrective_dataset_path = "dataset/corrective_dataset_MATH_Phi-3-mini-128k-instruct_ZeroShot_COT_checkpoint"
-model_path = "microsoft/Phi-3-mini-128k-instruct"
-dataset_save_path = "dataset/corrective_copy_dataset_MATH_Phi-3-mini-128k-instruct_ZeroShot_COT_checkpoint"
+corrective_dataset_path = "dataset/corrective_dataset_MATH_LLAMA3_8b_ZeroShot_COT"
+model_path = "meta-llama/Meta-Llama-3-8B-Instruct"
+dataset_save_path = "dataset/corrective_copy_dataset_MATH_LLAMA3_8b_ZeroShot_COT"
 copy_prompt = """
 Problem: {problem}
 Correct Solution: {correct_solution}
