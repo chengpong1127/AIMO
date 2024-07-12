@@ -1,16 +1,34 @@
-import re
-from transformers import StoppingCriteria, StoppingCriteriaList
+# %% [markdown]
+# # Stage2: Math dataset completion
+
+# %%
+from transformers import BitsAndBytesConfig, AutoModelForCausalLM, AutoTokenizer, pipeline, StoppingCriteria, StoppingCriteriaList
+def get_pipe(model_path: str):
+    quantization_config = BitsAndBytesConfig(
+        load_in_4bit=True,
+        bnb_4bit_quant_type="nf4",
+        bnb_4bit_use_double_quant=True,
+        bnb_4bit_compute_dtype="bfloat16",
+    )
+    model = AutoModelForCausalLM.from_pretrained(
+        model_path, quantization_config=quantization_config
+    )
+    tokenizer = AutoTokenizer.from_pretrained(model_path)
+    tokenizer.pad_token_id = tokenizer.eos_token_id
+    pipe = pipeline("text-generation", model=model, tokenizer=tokenizer)
+    return pipe
+
+# %%
 from dataset_generator import generate_completion_dataset
-from dataset import get_MATH_dataset
-from utils import get_pipe
+from dataset import get_MATH_dataset, get_GSM8k_dataset
+import re
 
-model_path = "microsoft/Phi-3-mini-128k-instruct"
+model_path = "meta-llama/Meta-Llama-3-8B-Instruct"
 completion_prompt = "{problem} \nPlease reason step by step, and put your final answer within \\boxed{{}}.\nApproach: "
-dataset_save_path = "dataset/completion_dataset_Phi3_mini_128k_instruct_ZeroShot_COT"
+dataset_save_path = "dataset/completion_dataset_GSM8k_LLAMA3_8b_ZeroShot_COT"
 
-dataset = get_MATH_dataset()
+dataset = get_GSM8k_dataset("test")
 pipe = get_pipe(model_path)
-
 class StoppingCriteriaSub(StoppingCriteria):
     def __call__(self, input_ids, scores):
         decoded_text = pipe.tokenizer.decode(input_ids[0], skip_special_tokens=True)
@@ -18,7 +36,7 @@ class StoppingCriteriaSub(StoppingCriteria):
 generate_kargs = {
     "max_new_tokens": 2048,
     "do_sample": True, 
-    "batch_size": 16,
+    "batch_size": 4,
     "top_k": 0.0,
     "top_p": 1.0,
     "temperature": 0.5,
@@ -30,8 +48,8 @@ def get_answer_from_output(text):
         return float(result_output[0])
     except Exception:
         return None
-    
-    
+
+# %%
 completion_dataset = generate_completion_dataset(
     pipe=pipe,
     dataset=dataset,
@@ -42,3 +60,5 @@ completion_dataset = generate_completion_dataset(
     checkpoint_path="_".join([dataset_save_path, "checkpoint"]),
 )
 completion_dataset.save_to_disk(dataset_save_path)
+
+

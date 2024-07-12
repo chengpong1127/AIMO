@@ -4,9 +4,9 @@ from transformers import StoppingCriteria, StoppingCriteriaList
 from utils import get_pipe
 import re
 
-completion_dataset_path = "dataset/completion_dataset_MATH_LLAMA3_8b_ZeroShot_COT"
-model_path = "meta-llama/Meta-Llama-3-8B-Instruct"
-dataset_save_path = "dataset/corrective_dataset_MATH_LLAMA3_8b_ZeroShot_COT"
+completion_dataset_path = "dataset/completion_dataset_Phi-3-mini-128k-instruct_ZeroShot_COT"
+model_path = "mmicrosoft/Phi-3-mini-128k-instruct"
+dataset_save_path = "dataset/corrective_dataset_MATH_Phi-3-mini-128k-instruct_ZeroShot_COT"
 corrective_prompt = """{problem}
 Here is the incorrect solution generated from LLM.
 {incorrect_solution}, The answer we got from the incorrect solution is {incorrect_answer}. Note that if the incorrect answer is None, it means the model did not generate answer following the format.
