@@ -1,7 +1,7 @@
 from datasets import Dataset, DatasetInfo, disable_progress_bar, enable_progress_bar, load_from_disk
 from transformers import Pipeline
 from tqdm.auto import tqdm
-from .utils import generate_completions, is_number
+from utils import generate_completions, is_number
 import logging
 import yaml
 

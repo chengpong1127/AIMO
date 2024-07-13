@@ -1,0 +1,32 @@
+{
+  "citation": "",
+  "description": "Completion generation dataset.\nPrompt:{problem} \nPlease reason step by step, and put your final answer within \\boxed{{}}.\nApproach: \nmodel_path:unsloth/llama-3-8b-instruct-bnb-4bit\ngenerate_count_per_problem:1\ngenerate_kwargs:{'max_new_tokens': 2048, 'do_sample': True, 'batch_size': 16, 'top_k': 0.0, 'top_p': 1.0, 'temperature': 0.5, 'stopping_criteria': [<__main__.StoppingCriteriaSub object at 0x772f6456b010>]}",
+  "features": {
+    "prompt": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "completion": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "label": {
+      "dtype": "bool",
+      "_type": "Value"
+    },
+    "problem": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "correct_answer": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "generated_answer": {
+      "dtype": "float64",
+      "_type": "Value"
+    }
+  },
+  "homepage": "",
+  "license": ""
+}
