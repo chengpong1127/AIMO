@@ -4,8 +4,8 @@ from transformers import StoppingCriteria, StoppingCriteriaList
 from utils import get_pipe
 import re
 
-completion_dataset_path = "dataset/completion_dataset_Phi-3-mini-128k-instruct_ZeroShot_COT"
-model_path = "mmicrosoft/Phi-3-mini-128k-instruct"
+completion_dataset_path = "dataset/completion_dataset_Phi3_mini_128k_instruct_ZeroShot_COT"
+model_path = "microsoft/Phi-3-mini-128k-instruct"
 dataset_save_path = "dataset/corrective_dataset_MATH_Phi-3-mini-128k-instruct_ZeroShot_COT"
 corrective_prompt = """{problem}
 Here is the incorrect solution generated from LLM.
